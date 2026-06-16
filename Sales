@@ -1,0 +1,97 @@
+CREATE TABLE sales_branches (
+    branch_id INT,
+    branch_name VARCHAR(100),
+    branch_admin_name VARCHAR(100)
+);
+
+CREATE TABLE  users (
+    user_id INT,
+    username VARCHAR(100),
+    password VARCHAR(255),
+    branch_id INT,
+    role VARCHAR(20) CHECK(role IN ('Super Admin','Admin')),
+    email VARCHAR(255) UNIQUE
+);
+
+CREATE TABLE customer_sales (
+    sale_id INT,
+    branch_id INT,
+    sale_date DATE,
+    customer_name VARCHAR(100),
+    mobile_number VARCHAR(15) ,
+    product_name VARCHAR(30),
+    gross_sales NUMERIC(12,2),
+    received_amount NUMERIC(12,2),
+
+    pending_amount NUMERIC(12,2),
+   
+   	status VARCHAR(10)
+    CHECK(status IN('Open','Close'))
+);
+
+CREATE TABLE payment_splits (
+    payment_id INT PRIMARY KEY,
+    sale_id INT,
+    payment_date DATE,
+    amount_paid NUMERIC(12,2),
+    payment_method VARCHAR(50)
+);
+
+CREATE OR REPLACE FUNCTION update_received_amount()
+RETURNS TRIGGER AS $$
+BEGIN
+
+    UPDATE customer_sales
+    SET received_amount =
+    (
+        SELECT COALESCE(SUM(amount_paid),0)
+        FROM payment_splits
+        WHERE sale_id = NEW.sale_id
+    )
+    WHERE sale_id = NEW.sale_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_received_amount
+AFTER INSERT ON payment_splits
+FOR EACH ROW
+EXECUTE FUNCTION update_received_amount();
+
+INSERT INTO sales_branches VALUES(1,'Chennai','John');
+INSERT INTO sales_branches VALUES(2,'bengalore','peter');
+INSERT INTO sales_branches VALUES(3,'delhi','John')
+
+INSERT INTO users VALUES(9,'superadmin','admin123', NULL, 'Super Admin','supers@gmail.com');
+INSERT INTO users VALUES(6,'chennaiadmin','admin123', 1,'Admin','chennai@gmail.com');
+INSERT INTO users VALUES(7,'superadmin','admin123', NULL,'Super Admin','super@gmail.com');
+INSERT INTO users VALUES(10,'bengaloreadmin','admin123', 2,'Admin','bengalore@gmail.com')
+
+
+INSERT INTO customer_sales values(05, 1, '01-06-2026', 'John', '9876543210','DS', 50000);
+INSERT INTO customer_sales values(12, 1, '02-06-2026', 'peter', '8796543210', 'DA', 40000);
+INSERT INTO customer_sales values(13, 2, '03-06-2026', 'mark', '8796543211', 'DS', 45000)
+
+INSERT INTO payment_splits VALUES(987654, 12, '13-06-2026', 25000, 'cash');
+INSERT INTO payment_splits VALUES(654321, 09, '14-06-2026', 20000, 'UPI')
+
+SELECT
+b.branch_name,
+SUM(c.gross_sales)
+FROM customer_sales c
+JOIN branches b
+ON c.branch_id = b.branch_id
+GROUP BY b.branch_name;
+
+SELECT SUM(gross_sales)
+FROM customer_sales;
+
+INSERT INTO payment_splits VALUES(986542, 12, '04-6-2026', 4000, 'upi')
+
+UPDATE customer_sales	
+SET pending_amount = gross_sales - received_amount;
+
+SELECT * FROM customer_sales
+
+INSERT INTO payment_splits VALUES(25836, 5, '10-06-2026', 25000, 'upi')
