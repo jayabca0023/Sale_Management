@@ -1,0 +1,92 @@
+import streamlit as st
+import psycopg2
+
+st.title("Sales Management System")
+
+# Session State
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+# Login Page
+if not st.session_state.logged_in:
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    role = st.selectbox(
+        "Select Role",
+        ["Super Admin", "Admin"]
+    )
+
+    if st.button("Login"):
+
+        if username and password:
+
+            st.session_state.logged_in = True
+            st.session_state.role = role
+
+            st.success("Login Successful")
+            st.rerun()
+
+        else:
+            st.error("Enter Username and Password")
+
+# Main Application
+else:
+
+    st.sidebar.success(f"Logged in as {st.session_state.role}")
+
+    menu = st.sidebar.selectbox(
+        "Menu",
+        ["Dashboard", "Branches", "Users", "Sales"]
+    )
+
+    if menu == "Dashboard":
+
+        st.header("Dashboard")
+
+        conn = psycopg2.connect(
+            host="localhost",
+            database="sales_management",
+            user="postgres",
+            password="123456",
+            port="5432"
+        )
+
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                COALESCE(SUM(gross_sales),0),
+                COALESCE(SUM(received_amount),0),
+                COALESCE(SUM(pending_amount),0)
+            FROM customer_sales
+        """)
+
+        total_gross, total_received, total_pending = cur.fetchone()
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Total Gross Sales", f"₹{total_gross:,.2f}")
+
+        with col2:
+            st.metric("Total Received Amount", f"₹{total_received:,.2f}")
+
+        with col3:
+            st.metric("Total Pending Amount", f"₹{total_pending:,.2f}")
+
+        conn.close()
+
+    elif menu == "Branches":
+        st.header("Branch Management")
+
+    elif menu == "Users":
+        st.header("User Management")
+
+    elif menu == "Sales":
+        st.header("Sales Management")
+
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
